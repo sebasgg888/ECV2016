@@ -1,0 +1,498 @@
+#Para cargar los módulos de la ECV 2016#
+
+dtvivienda<- read.table(file.choose(),header=TRUE, sep="\t")
+dtservicioshogar<-read.table(file.choose(),header=TRUE, sep="\t")
+dttenenciaviv<-read.table(file.choose(),header=TRUE, sep="\t")
+dtcondicionesvida<-read.table(file.choose(),header=TRUE, sep="\t")
+dtcarachogar<-read.table(file.choose(),header = TRUE,sep = "\t")
+dtsalud <- read.table(file.choose(), header = TRUE, sep="\t")
+dteduca<-read.table(file.choose(), header = TRUE, sep="\t")
+dtfuerzatrab<-read.table(file.choose(), header = TRUE, sep="\t")
+
+############ Se procede a unir las distintas bases de datos en una sola por medio del comando merge y los directorios de la ECV###############
+
+mydata1 <- merge(dtservicioshogar,dtvivienda, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE) 
+mydata2<-merge(mydata1,dttenenciaviv, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE) 
+mydata3<-merge(mydata2,dtcondicionesvida, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE)
+mydata4<-merge(mydata3,dteduca, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE)
+mydata5<-merge(mydata4,dtsalud, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE)
+mydata6<-merge(mydata5,dtfuerzatrab, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE)
+mydata7<-merge(mydata6,dtcarachogar, by=c("DIRECTORIO","SECUENCIA_ENCUESTA","SECUENCIA_P","ORDEN"),all = TRUE)
+
+basecompleta<-mydata7
+hist(basecompleta$P8624)
+
+#Para comprobar que las bases hayan quedado bien pareadads, se comparan algunos registros de la base individual con la base completa###
+
+########################################
+
+#### Para quitar los NA de la variable ingresos laborales (P8624), P6240=actividad principal (1 Está trabajando) y que tengan al menos un año de educación superior####
+
+base2<-subset(basecompleta,basecompleta$P8624!="NA"&basecompleta$P6240==1&P6211>=1)
+hist(base2$P8624,xlab = "Ingresos laborales")
+
+### Se trabaja con aquellos salarios por debajo del quantil del 99.5% para evitar la distorsión de los datos más altos en las estimaciones)
+
+quantil99.5<- quantile(base2$P8624,probs = c(0.995))
+sd<-sd(base2$P8624)*3
+
+###A la base anterior se le quitan los salarios positivos mayores a 11224500 (quantil 99.5), empleados domésticos, jornaleros y trabajores por cuenta propia (Códigos del 3 al 10 de la pregunta P6435), y menores a 65 años (P6040).
+
+base3<-subset(base2,base2$P8624>10000&base2$P8624<=quantil99.5&base2$P6435<=2&base2$P6040<=65)
+hist(base3$P8624/1000000)
+salario<-base3$P8624
+base3$salario <- salario
+hist(log(salario))
+summary(salario)
+
+#### Se procede a renombrar alguanas de las variables de interés#####
+
+##REGIÓN, el grupo otra incluye a San Andrés, Orinoquía y Amazonía###
+
+region<-ifelse(base3$REGION==1,"Caribe",
+               ifelse(base3$REGION ==2,'Oriental',
+                      ifelse(base3$REGION == 3,'Central',
+                             ifelse(base3$REGION==4,"Pacífica",
+                                    ifelse(base3$REGION==5,"Bogotá",
+                                           ifelse(base3$REGION==6,"Antioquia",
+                                                  ifelse(base3$REGION==7,"Valle","Otra")))))))
+
+base3$region <- region
+table(base3$REGION)
+table(base3$region)
+boxplot(base3$salario/1000000~base3$region)
+
+##############GÉNERO
+
+genero<- ifelse(base3$P6020 == 1,"Hombre", "Mujer")
+
+base3$genero <- genero
+
+table(base3$P6020)
+table(base3$genero)
+
+boxplot(base3$salario~base3$genero)
+
+table(base3$P6435)
+
+####Nivel educativo######
+
+table(base3$P8587)
+
+neducativo<-ifelse(base3$P8587==1,"Ninguno",
+                   ifelse(base3$P8587==2,"Preescolar",
+                          ifelse(base3$P8587==3,"Primaria",
+                                 ifelse(base3$P8587 ==4,'Secundaria',
+                                        ifelse(base3$P8587 == 5,'Media',
+                                               ifelse(base3$P8587==6,"Técnica",
+                                                      ifelse(base3$P8587==7,"Técnica",
+                                                             ifelse(base3$P8587==8,"Tecnológica",
+                                                                    ifelse(base3$P8587==9,"Tecnológica",
+                                                                           ifelse(base3$P8587==10,"Universidad",
+                                                                                  ifelse(base3$P8587==11,"Universidad", "Posgrado")))))))))))
+
+
+
+
+
+neducativo <- factor(neducativo, levels=c('Ninguno',"Preescolar","Primaria","Secundaria",
+                                          "Media","Técnica","Tecnológica",
+                                          "Universidad","Posgrado"))
+
+base3$neducativo <- neducativo
+
+boxplot(base3$salario/1000000~base3$neducativo)
+
+table(base3$P8587)
+table(base3$neducativo)
+
+########Nivel educativo padre########
+
+nepadre<-ifelse(base3$P6087=="1","Primaria",
+                ifelse(base3$P6087 =="2",'Primaria',
+                       ifelse(base3$P6087 == "3",'Secundaria',
+                              ifelse(base3$P6087=="4","Secundaria",
+                                     ifelse(base3$P6087=="5","Técnica",
+                                            ifelse(base3$P6087=="6","Técnica",
+                                                   ifelse(base3$P6087=="7","Universidad",
+                                                          ifelse(base3$P6087=="8","Universidad", "Ninguna"))))))))
+
+nepadre <- factor(nepadre, levels=c("Ninguna","Primaria",
+                                    "Secundaria","Técnica","Universidad"))
+base3$nepadre <- nepadre
+
+boxplot(base3$salario/1000000~base3$nepadre)
+
+table(base3$nepadre)
+table(base3$P6087)
+
+########Nivel educativo madre########
+
+nemadre<-ifelse(base3$P6088==1,"Primaria",
+                ifelse(base3$P6088 ==2,'Primaria',
+                       ifelse(base3$P6088 == 3,'Secundaria',
+                              ifelse(base3$P6088==4,"Secundaria",
+                                     ifelse(base3$P6088==5,"Técnica",
+                                            ifelse(base3$P6088==6,"Técnica",
+                                                   ifelse(base3$P6088==7,"Universidad",
+                                                          ifelse(base3$P6088==8,"Universidad", "Ninguna"))))))))
+
+
+nemadre <- factor(nemadre, levels=c('Ninguna',"Primaria","Secundaria",
+                                    "Técnica","Universidad"))
+
+base3$nemadre <- nemadre
+
+boxplot(base3$salario/1000000~base3$nemadre)
+
+table(base3$P6088)
+table(base3$nemadre)
+
+########Tipo de contrato######
+
+tipocontrato<-ifelse(base3$P6460==1,"T.Indefinido","T. Fijo")
+
+base3$tipocontrato<-tipocontrato
+
+boxplot(base3$salario/1000000~base3$tipocontrato)
+
+
+############ Tiempo trabajando en la empresa P6426 en meses, aproximado de la experiencia de la persona####
+
+tiempoenlaempresa<-base3$P6426
+base3$tiempoenlaempresa <- tiempoenlaempresa
+hist(base3$P6426)
+plot(log(base3$salario)~base3$tiempoenlaempresa)
+cor(log(base3$salario),base3$tiempoenlaempresa)
+
+######### Edad P6040
+
+edad<-base3$P6040
+base3$edad <- edad
+
+####Edad al cuadrado####
+edad2<-(base3$edad)*(base3$edad)
+base3$edad2 <- edad2
+
+plot(log(base3$salario)~base3$edad)
+cor(log(base3$salario),base3$edad)
+
+#######Tamaño de la empresa#########
+
+t.empresa<-ifelse(base3$P8632==1|base3$P8632==2,"2 a 3",
+                  ifelse(base3$P8632==3,"4 a 5",
+                         ifelse(base3$P8632 ==4,'6 a 10',
+                                ifelse(base3$P8632 == 5,'11 a 19',
+                                       ifelse(base3$P8632==6,"20 a 30",
+                                              ifelse(base3$P8632==7,"31 a 50", 
+                                                     ifelse(base3$P8632==8,"51 a 100","mayor a 101")))))))
+
+
+
+
+
+t.empresa <- factor(t.empresa, levels=c("2 a 3","4 a 5","6 a 10",
+                                        "11 a 19","20 a 30","31 a 50","51 a 100","mayor a 101"))
+
+
+base3$t.empresa <- t.empresa
+
+boxplot(base3$salario/1000000~base3$t.empresa)
+
+table(base3$t.empresa)
+
+###############etnia##########
+
+etnia<-ifelse(base3$P6080==5,"Afrodescendiente",
+              ifelse(base3$P6080==6,"Ninguna de las anteriores","Otras minorías"))
+
+base3$etnia <- etnia
+table(etnia)
+
+#############Estado Civil##########
+
+estadocivil<-ifelse(base3$P5502==6,"Casado(a)",
+                    ifelse(base3$P5502==5,"Soltero(a)","Otro"))
+
+base3$estadocivil<-estadocivil
+
+boxplot(base3$salario~base3$estadocivil)
+
+########Tipo de empleado#########
+
+templeado<-ifelse(base3$P6435==1,"Empresa particular", "Gobierno")
+
+base3$templeado<-templeado
+table(base3$P6435)
+table(base3$templeado)
+
+####Ubicación####
+
+ubicacion<-ifelse(base3$P3==1,"Cabecera",
+                  ifelse(base3$P3==2,"Centro poblado", "Rural disperso"))
+
+base3$ubicacion<-ubicacion
+
+#########Gráficos descirptivos#########
+
+######densidad de la variable dependiente
+par(mfrow=c(1,1))
+plot(density(log(salario)),xlab ="Logaritmo natural del ingreso laboral", main = "")
+
+ECV2016<-subset(base3,salario>=1,select=c(salario,estadocivil,neducativo,nemadre,nepadre,tiempoenlaempresa,templeado,region,edad,P6240,P6211,genero,ubicacion,t.empresa))
+
+write.table(ECV2016, "C:/Users/User/Documents/Especialización Estadística/ECV2016.txt", sep="\t")
+
+# 3D Scatterplot entre salario, edad, y tiempo en la empresa#####
+library(scatterplot3d)
+attach(mtcars)
+scatterplot3d(wt,disp,mpg, main="3D Scatterplot")
+library(scatterplot3d)
+
+#####Boxplots
+
+
+
+########Modelo######
+
+lm1<-lm(log(salario)~genero+edad+I(edad^2)+tiempoenlaempresa+I(tiempoenlaempresa^2)+P6211,data=base3)
+summary(lm1)
+par(mfrow=c(1,1))
+plot(lm1)
+
+lm2<-lm(log(salario)~genero+edad+edad2+P6211+tiempoenlaempresa+I(tiempoenlaempresa^2)+t.empresa+estadocivil+templeado+P415,data = base3)
+summary(lm2)
+par(mfrow=c(1,2))
+plot(lm2)
+
+lm3<-lm(log(salario)~genero+edad+edad2+P6211+tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil,data = base3)
+summary(lm3)
+par(mfrow=c(1,2))
+plot(lm3)
+
+lm4<-lm(log(salario)~genero+edad+edad2+P6211+I(P6211^2)+tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil+t.empresa+templeado,data = base3)
+summary(lm3)
+par(mfrow=c(1,2))
+plot(lm3)
+
+AIC(lm3)
+
+
+#################
+
+require(MASS)
+modback <- stepAIC(lm3, trace=TRUE, direction="backward")
+modback$anova
+
+######Gráficos######
+
+########Para usar GAMLSS####
+
+###Cuál es la distribución que mejor se ajusta a los datos###
+
+require(gamlss)
+hist(log(salario))
+gamlsslogsalario<- fitDist(y=log(base3$salarioporhora),type="realplus", k=log(nrow(base3)))
+
+gamlsslogsalario$fits
+
+par(mfrow=c(2,2))
+
+gam1<-histDist(log(base3$salario),family=BCTo,nbins=30)
+
+gam2<-histDist(log(base3$salario),family=BCCGo,nbins=30)
+
+gam3<-histDist(log(base3$salario),family=BCPEo,nbins=30)
+
+gam4<-histDist(log(base3$salario),family=exGAUS,nbins=30)
+
+gam5<-histDist(log(base3$salario),family=GA,nbins=30)
+
+gam6<-histDist(log(base3$salario),family=LOGNO,nbins=30)
+
+
+####Se procede a ajusar los modelos con las mejores distribuciones BCTo,exGAUS,Logno,
+
+horizonte2<-formula(~base3$edad+base3$edad2+base3$P6211+I(base3$P6211^2)+base3$genero+
+                      base3$tiempoenlaempresa+I(base3$tiempoenlaempresa^2)+base3$estadocivil+base3$templeado)
+
+empty.BCTo<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=BCTo)
+
+mod.BCTo<-stepGAICAll.A(object=empty.BCTo,
+                        
+                        scope=list(lower=~1,upper=horizonte2),
+                        
+                        sigma.scope=list(lower=~1,upper=horizonte2),
+                        
+                        nu.scope = list(lower=~1,upper=horizonte2),
+                        
+                        tau.scope = list(lower=~1,upper=horizonte2))
+
+
+summary(mod.BCTo)
+
+fitted(mod.BCTo)[1]
+
+fitted(mod.BCTo,"sigma")[1]
+
+fitted(mod.BCTo,"nu")[1]
+
+fitted(mod.BCTo,"tau")[1]
+
+par(mfrow=c(1,2))
+plot(mod.BCTo)
+coef(mod.BCTo)
+coef(mod.BCTo,what = "mu")
+wp(mod.BCTo,ylim.all = 0.9)
+AIC(mod.BCTo)
+AIC(lm3)
+############
+
+##########ExGAUS
+
+empty.exgaus<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=exGAUS)
+
+mod.exgaus<-stepGAICAll.A(object=empty.exgaus,
+                          
+                          scope=list(lower=~1,upper=horizonte2),
+                          
+                          sigma.scope=list(lower=~1,upper=horizonte2),
+                          
+                          nu.scope = list(lower=~1,upper=horizonte2),
+                          
+                          tau.scope = list(lower=~1,upper=horizonte2))
+
+summary(mod.exgaus)
+par(mfrow=c(1,2))
+plot(mod.exgaus)
+coef(mod.exgaus)
+coef(mod.exgaus,what = "mu")
+wp(mod.exgaus,ylim.all = 0.9)
+AIC(mod.exgaus)
+
+###################LogNo
+
+empty.logno<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=LOGNO)
+
+mod.logno<-stepGAICAll.A(object=empty.logno,
+                         
+                         scope=list(lower=~1,upper=horizonte2),
+                         
+                         sigma.scope=list(lower=~1,upper=~horizonte2))
+
+summary(mod.logno)
+par(mfrow=c(1,2))
+plot(mod.logno)
+wp(mod.logno,ylim.all = 0.7)
+
+#############
+
+empty.BCPEO<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=BCPEo)
+
+mod.BCPEO<-stepGAICAll.A(object=empty.BCPEO,
+                        
+                        scope=list(lower=~1,upper=horizonte2),
+                        
+                        sigma.scope=list(lower=~1,upper=horizonte2),
+                        
+                        nu.scope = list(lower=~1,upper=horizonte2),
+                        
+                        tau.scope = list(lower=~1,upper=horizonte2))
+
+summary(mod.BCPEO)
+par(mfrow=c(1,2))
+plot(mod.BCPEO)
+coef(mod.BCPEO)
+coef(mod.BCPEO,what = "mu")
+wp(mod.BCPEO,ylim.all = 0.4)
+
+
+#######
+
+empty.BCCGO<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=BCCGo)
+
+mod.BCCGO<-stepGAICAll.A(empty.BCCGO,trace=F,
+                         
+                         scope=list(lower=~1,upper=horizonte2,data=base3),
+                         
+                         sigma.scope=list(lower=~1,upper=horizonte2,data=base3),
+                         
+                         nu.scope = list(lower=~1,upper=horizonte2,data=base3))
+mod.BCCGO
+par(mfrow=c(1,2))
+plot(mod.BCCGO)
+coef(mod.BCCGO)
+coef(mod.BCCGO,what = "mu")
+wp(mod.BCCGO,ylim.all = 0.4)
+
+
+#########
+
+empty.exgaus<-gamlss(log(base3$salarioporhora)~1,sigma.fo=~1,nu.fo=~1,family=exGAUS)
+
+mod.exgaus<-stepGAICAll.A(object=empty.exgaus,k=2,
+                          
+                          scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3),
+                          
+                          sigma.scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3),
+                          
+                          nu.scope = list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3))
+summary(mod.exgaus)
+par(mfrow=c(1,2))
+plot(mod.exgaus)
+wp(mod.exgaus,ylim.all = 0.7)
+
+########
+
+empty.GA<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=GA)
+
+mod.GA<-stepGAICAll.A(object=empty.GA,k=2,
+                      
+                      scope=list(lower=~1,upper=horizonte2,data=base3),
+                      
+                      sigma.scope=list(lower=~1,upper=horizonte2,data=base3))
+
+summary(mod.GA)
+par(mfrow=c(1,2))
+plot(mod.GA)
+wp(mod.GA,ylim.all = 0.7)
+
+AIC(mod.BCTo,mod.exgaus,mod.GA)
+
+############
+
+empty.Logno<-gamlss(log(base3$salarioporhora)~1,sigma.fo=~1,family=LOGNO)
+
+mod.Logno<-stepGAICAll.A(object=empty.Logno,k=2,
+                         
+                         scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3),
+                         
+                         sigma.scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3))
+
+summary(mod.Logno)
+par(mfrow=c(1,2))
+plot(mod.GA)
+wp(mod.exgaus,ylim.all = 0.7)
+
+AIC(mod.BCTo,mod.exgaus,mod.GA,mod.Logno)
+
+####
+
+empty.GG<-gamlss(log(base3$salario)~1,sigma.fo=~1,nu.fo=~1,tau.fo=~1,family=GG)
+
+mod.GG<-stepGAICAll.A(object=empty.GG,k=2,
+                      
+                      scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa+tiempoenlaempresa+estadocivil,data=base3),
+                      
+                      sigma.scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa+tiempoenlaempresa+estadocivil,data=base3),
+                      
+                      nu.scope = list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa+tiempoenlaempresa+estadocivil,data=base3))
+summary(mod.GG)
+par(mfrow=c(1,2))
+plot(mod.GG)
+coef(mod.GG)
+coef(mod.BCCGO,what = "mu")
+wp(mod.BCCGO,ylim.all = 1)
+
+
+write.table(basecompleta, "C:/Users/Public/Documents/GEIH/ECV2016.txt", sep="\t")
