@@ -5,15 +5,26 @@ datos <- read.table(file=a, sep="\t", header=TRUE)
 head(datos)
 attach(datos)
 
+###Para cambiar modificar el nombre de la variable P6211 (años de educación superior)###
+
+añossuperior<-P6211
+datos$añossuperior<-añossuperior
+
 ######densidad de la variable dependiente
 
+summary(salario)
+summary(log(salario))
 
-plot(density(log(salario)),xlab ="Logaritmo natural del ingreso laboral", main = "")
+par(mfrow=c(1,2),mar=c(4.5,4,2,2.1))
+plot(density(salario/1000000),xlab ="Ingreso laboral (millones$)", main = "",ylab = "Densidad",family="serif")
+plot(density(log(salario)),xlab ="Logaritmo natural del ingreso laboral", main = "",ylab = "Densidad",family="serif")
+
 
 # 3D Scatterplot entre salario, edad, y tiempo en la empresa#####
 library(scatterplot3d)
-par(mfrow=c(1,1))
-scatterplot3d(edad,tiempoenlaempresa,log(salario), main="3D Scatterplot",angle = 55,type = "p",pch = 21)
+par(mfrow=c(1,2))
+scatterplot3d(edad,tiempoenlaempresa,log(salario), main="",angle = 55,type = "p",pch = 21,ylab = "Experiencia (meses)",family="serif",xlab = "Edad",mar = c(4.5,4,2,2.1))
+scatterplot3d(P6211,tiempoenlaempresa,log(salario), main="",angle = 55,type = "p",pch = 21,xlab = "Años de educación superior",ylab = "Experiencia (meses)",family="serif",mar=c(4.5,4,2,2.1))
 
 ########## Para clasificar algunas variables categórica tamaño empresa(t.empresa), niveleducativo,nivel educativo padre, nivel educativo madre.
 
@@ -28,7 +39,10 @@ datos$t.empresa <- t.empresa
 
 #####Boxplots######
 
-par(mfrow=c(2, 3),cex.axis=0.8,cex.lab=0.9)
+par(mfrow=c(2, 3),cex.axis=1,cex.lab=1)
+boxplot(log(salario) ~ t.empresa, las=2,
+        ylab="Ln del salario", 
+        xlab="")
 boxplot(log(salario) ~ genero, las=1,
         ylab='Ln del salario', 
         xlab='Género')
@@ -41,24 +55,27 @@ boxplot(log(salario) ~ templeado, las=1,
 boxplot(log(salario) ~ tipocontrato, las=1,
         ylab="Ln del salario", 
         xlab='Tipo contrato')
-boxplot(log(salario) ~ t.empresa, las=2,
-        ylab="Ln del salario", 
-        xlab='Tamaño empresa (empleados)')
 
 ########Modelo Lineal######
 
-lm1<-lm(log(salario)~genero+edad+I(edad^2)+P6211+I(P6211^2)+tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil+t.empresa+templeado,data = datos)
+lm1<-lm(log(salario)~edad+I(edad^2)+tiempoenlaempresa+I(tiempoenlaempresa^2)++P6211+I(P6211^2)+genero+estadocivil+t.empresa+templeado,data = datos)
 summary(lm1)
-plot(lm1)
+par(mfrow=c(1,3),mar=c(4.5,4,2,2.1))
+plot(lm1,which = 2)
+plot(lm1,which = 3)
+plot(lm1,which = 4)
 AIC(lm1)
+
 
 ###Para hacer la regresión sin los datos más extremos (64194,72800,35435,70030)
 
 lm2<-lm(log(salario)~genero+edad+I(edad^2)+P6211+I(P6211^2)+tiempoenlaempresa+
-             I(tiempoenlaempresa^2)+estadocivil+t.empresa+templeado+tipocontrato,data=datos[-c(64194,72800,35435,70030), ])
+             I(tiempoenlaempresa^2)+estadocivil+t.empresa+templeado+tipocontrato,data=datos[-c(9617,35435,70030),])
 summary(lm2)
-plot(lm2, which=2, pch=19)
+plot(lm2, which=4, pch=19)
 plot(lm2)
+
+#### Como no se observó una mejora significativa en la regresión se procede a ajustar mediante la metodología GAMLSS
 
 ################# Para descartar posibles variables inaportantes al modelo##
 
@@ -90,60 +107,60 @@ fitexGAUS<-histDist(log(salario),family=exGAUS,nbins=30)
 fitexGAUS$mu
 fitexGAUS$sigma
 
-fitBCCGo<-histDist(log(salario),family=BCCGo,nbins=30)
-fitBCCGo$mu
-fitBCCGo$sigma
+fitGA<-histDist(log(salario),family=GA,nbins=30)
+fitGA$mu
+fitGA$sigma
 
 ##################### Gráficos con las mejores distribuciones#####
 
 par(mfrow=c(2, 2))
 hist(log(salario),
-     main=expression(paste("Box Cox t(", mu, "=13.98, ", sigma,"=0.042)")),
+     main=expression(paste("Box-Cox t(", mu, "=13.98, ", sigma,"=0.042)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9,18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
 curve(dBCTo(x, mu=exp(fitBCTo$mu.coef),
             sigma = exp(fitBCTo$sigma.coef)), add=T, lwd=3)
 
 hist(log(salario),
-     main=expression(paste("BCPEo(", mu, "=13.99, ", sigma,"=0.048)")),
+     main=expression(paste("Box-Cox Power Exp(", mu, "=13.99, ", sigma,"=0.048)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9, 18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
-curve(dBCPEo(x, mu=exp(fitBPEo$mu.coef), 
+curve(dBCPEo(x, mu=exp(fitBCPEo$mu.coef), 
             sigma=exp(fitBCPEo$sigma.coef)), add=T, lwd=3)
 
 hist(log(salario),
-     main=expression(paste("exGAUS(", mu, "=13.71, ", sigma,"=0.60)")),
+     main=expression(paste("exGAUS(", mu, "=13.71, ", sigma,"=0.6)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9, 18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
 curve(dexGAUS(x, mu=exp(fitexGAUS$mu.coef), 
           sigma=exp(fitexGAUS$sigma.coef)), add=T, lwd=3)
 
 hist(log(salario),
-     main=expression(paste("BCCGo(", mu, "=14, ", sigma,"=0.048)")),
+     main=expression(paste("Gamma(", mu, "=14.01, ", sigma,"=0.048)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9, 18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
-curve(dBCCGo(x, mu=exp(fitBCCGo$mu.coef), 
-               sigma=exp(fitBCCGo$sigma.coef)), add=T, lwd=3)
+curve(dGA(x, mu=exp(fitGA$mu.coef), 
+               sigma=exp(fitGA$sigma.coef)), add=T, lwd=3)
 
 
 ##########################
 
-####Se procede a ajusar los modelos con las mejores distribuciones BCTo,exGAUS,Logno,
+####Se procede a ajusar los modelos con las mejores distribuciones BCTo,BCPEo,exGAUS,GA
 
-horizonte2<-formula(~edad+I(edad^2)+P6211+I(P6211^2)+genero+
-                         tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil+templeado+tipocontrato)
+horizonte<-formula(~edad+I(edad^2)+añossuperior+I(añossuperior^2)+genero+
+                         tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil+templeado+tipocontrato+t.empresa)
 
 empty.BCTo<-gamlss(log(salario)~1,sigma.fo=~1,family=BCTo)
 
-mod.BCTo<-stepGAICAll.A(object=empty.BCTo,
+mod.BCTo<-stepGAICAll.A(object=empty.BCTo,k=log(nrow(datos)),
                         
-                        scope=list(lower=~1,upper=horizonte2),
+                        scope=list(lower=~1,upper=horizonte),
                         
-                        sigma.scope=list(lower=~1,upper=horizonte2),
+                        sigma.scope=list(lower=~1,upper=horizonte),
                         
-                        nu.scope = list(lower=~1,upper=horizonte2),
+                        nu.scope = list(lower=~1,upper=horizonte),
                         
-                        tau.scope = list(lower=~1,upper=horizonte2))
+                        tau.scope = list(lower=~1,upper=horizonte))
 
 
 summary(mod.BCTo)
@@ -163,58 +180,20 @@ coef(mod.BCTo,what = "mu")
 wp(mod.BCTo,ylim.all = 0.9)
 AIC(mod.BCTo)
 AIC(lm3)
-############
 
-##########ExGAUS
+############BCPEO
 
-empty.exgaus<-gamlss(log(salario)~1,sigma.fo=~1,family=exGAUS)
+empty.BCPEO<-gamlss(log(salario)~1,sigma.fo=~1,family=BCPEo)
 
-mod.exgaus<-stepGAICAll.A(object=empty.exgaus,
-                          
-                          scope=list(lower=~1,upper=horizonte2),
-                          
-                          sigma.scope=list(lower=~1,upper=horizonte2),
-                          
-                          nu.scope = list(lower=~1,upper=horizonte2),
-                          
-                          tau.scope = list(lower=~1,upper=horizonte2))
-
-summary(mod.exgaus)
-par(mfrow=c(1,2))
-plot(mod.exgaus)
-coef(mod.exgaus)
-coef(mod.exgaus,what = "mu")
-wp(mod.exgaus,ylim.all = 0.9)
-AIC(mod.exgaus)
-
-###################LogNo
-
-empty.logno<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=LOGNO)
-
-mod.logno<-stepGAICAll.A(object=empty.logno,
+mod.BCPEO<-stepGAICAll.A(object=empty.BCPEO,k=log(nrow(datos)),
                          
-                         scope=list(lower=~1,upper=horizonte2),
+                         scope=list(lower=~1,upper=horizonte),
                          
-                         sigma.scope=list(lower=~1,upper=~horizonte2))
-
-summary(mod.logno)
-par(mfrow=c(1,2))
-plot(mod.logno)
-wp(mod.logno,ylim.all = 0.7)
-
-#############
-
-empty.BCPEO<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=BCPEo)
-
-mod.BCPEO<-stepGAICAll.A(object=empty.BCPEO,
+                         sigma.scope=list(lower=~1,upper=horizonte),
                          
-                         scope=list(lower=~1,upper=horizonte2),
+                         nu.scope = list(lower=~1,upper=horizonte),
                          
-                         sigma.scope=list(lower=~1,upper=horizonte2),
-                         
-                         nu.scope = list(lower=~1,upper=horizonte2),
-                         
-                         tau.scope = list(lower=~1,upper=horizonte2))
+                         tau.scope = list(lower=~1,upper=horizonte))
 
 summary(mod.BCPEO)
 par(mfrow=c(1,2))
@@ -224,89 +203,51 @@ coef(mod.BCPEO,what = "mu")
 wp(mod.BCPEO,ylim.all = 0.4)
 
 
-#######
 
-empty.BCCGO<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=BCCGo)
+##########ExGAUS
 
-mod.BCCGO<-stepGAICAll.A(empty.BCCGO,trace=F,
-                         
-                         scope=list(lower=~1,upper=horizonte2,data=base3),
-                         
-                         sigma.scope=list(lower=~1,upper=horizonte2,data=base3),
-                         
-                         nu.scope = list(lower=~1,upper=horizonte2,data=base3))
-mod.BCCGO
-par(mfrow=c(1,2))
-plot(mod.BCCGO)
-coef(mod.BCCGO)
-coef(mod.BCCGO,what = "mu")
-wp(mod.BCCGO,ylim.all = 0.4)
+empty.exgaus<-gamlss(log(salario)~1,sigma.fo=~1,family=exGAUS)
 
-
-#########
-
-empty.exgaus<-gamlss(log(base3$salarioporhora)~1,sigma.fo=~1,nu.fo=~1,family=exGAUS)
-
-mod.exgaus<-stepGAICAll.A(object=empty.exgaus,k=2,
+mod.exgaus<-stepGAICAll.A(object=empty.exgaus,k=log(nrow(datos)),
                           
-                          scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3),
+                          scope=list(lower=~1,upper=horizonte),
                           
-                          sigma.scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3),
+                          sigma.scope=list(lower=~1,upper=horizonte),
                           
-                          nu.scope = list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3))
+                          nu.scope = list(lower=~1,upper=horizonte),
+                          
+                          tau.scope = list(lower=~1,upper=horizonte))
+
 summary(mod.exgaus)
 par(mfrow=c(1,2))
 plot(mod.exgaus)
-wp(mod.exgaus,ylim.all = 0.7)
+coef(mod.exgaus)
+coef(mod.exgaus,what = "mu")
+wp(mod.exgaus,ylim.all = 0.9)
+AIC(mod.exgaus)
 
-########
+##########################GA
 
-empty.GA<-gamlss(log(base3$salario)~1,sigma.fo=~1,family=GA)
+empty.GA<-gamlss(log(salario)~1,sigma.fo=~1,family=GA)
 
-mod.GA<-stepGAICAll.A(object=empty.GA,k=2,
+mod.GA<-stepGAICAll.A(object=empty.GA,k=log(nrow(datos)),
                       
-                      scope=list(lower=~1,upper=horizonte2,data=base3),
+                      scope=list(lower=~1,upper=horizonte,data=datos),
                       
-                      sigma.scope=list(lower=~1,upper=horizonte2,data=base3))
+                      sigma.scope=list(lower=~1,upper=horizonte,data=datos))
 
 summary(mod.GA)
 par(mfrow=c(1,2))
 plot(mod.GA)
 wp(mod.GA,ylim.all = 0.7)
 
-AIC(mod.BCTo,mod.exgaus,mod.GA)
+############ Para seleccionar entre los modelos
 
-############
+AIC(mod.BCTo,mod.exgaus,mod.GA,mod.BCPEO)
+AIC(lm2)
 
-empty.Logno<-gamlss(log(base3$salarioporhora)~1,sigma.fo=~1,family=LOGNO)
 
-mod.Logno<-stepGAICAll.A(object=empty.Logno,k=2,
-                         
-                         scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3),
-                         
-                         sigma.scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa,data=base3))
 
-summary(mod.Logno)
-par(mfrow=c(1,2))
-plot(mod.GA)
-wp(mod.exgaus,ylim.all = 0.7)
 
-AIC(mod.BCTo,mod.exgaus,mod.GA,mod.Logno)
 
-####
 
-empty.GG<-gamlss(log(base3$salario)~1,sigma.fo=~1,nu.fo=~1,tau.fo=~1,family=GG)
-
-mod.GG<-stepGAICAll.A(object=empty.GG,k=2,
-                      
-                      scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa+tiempoenlaempresa+estadocivil,data=base3),
-                      
-                      sigma.scope=list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa+tiempoenlaempresa+estadocivil,data=base3),
-                      
-                      nu.scope = list(lower=~1,upper=~edad+edad2+neducativo+genero+t.empresa+tiempoenlaempresa+estadocivil,data=base3))
-summary(mod.GG)
-par(mfrow=c(1,2))
-plot(mod.GG)
-coef(mod.GG)
-coef(mod.BCCGO,what = "mu")
-wp(mod.BCCGO,ylim.all = 1)
