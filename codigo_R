@@ -58,7 +58,7 @@ boxplot(log(salario) ~ tipocontrato, las=1,
 
 ########Modelo Lineal######
 
-lm1<-lm(log(salario)~edad+I(edad^2)+tiempoenlaempresa+I(tiempoenlaempresa^2)++P6211+I(P6211^2)+genero+estadocivil+t.empresa+templeado,data = datos)
+lm1<-lm(log(salario)~edad+I(edad^2)+tiempoenlaempresa+I(tiempoenlaempresa^2)++P6211+I(P6211^2)+genero+estadocivil+t.empresa+templeado+tipocontrato,data = datos)
 summary(lm1)
 par(mfrow=c(1,3),mar=c(4.5,4,2,2.1))
 plot(lm1,which = 2)
@@ -70,7 +70,7 @@ AIC(lm1)
 ###Para hacer la regresión sin los datos más extremos (64194,72800,35435,70030)
 
 lm2<-lm(log(salario)~genero+edad+I(edad^2)+P6211+I(P6211^2)+tiempoenlaempresa+
-             I(tiempoenlaempresa^2)+estadocivil+t.empresa+templeado+tipocontrato,data=datos[-c(9617,35435,70030),])
+          I(tiempoenlaempresa^2)+estadocivil+t.empresa+templeado+tipocontrato,data=datos[-c(9617,35435,70030],)
 summary(lm2)
 plot(lm2, which=4, pch=19)
 plot(lm2)
@@ -85,7 +85,7 @@ modback$anova
 
 ########Para usar GAMLSS####
 
-###Cuál es la distribución que mejor se ajusta a los datos de la variable dependiente###
+###Cuál es la distribución que mejor se ajusta a los datos de la variable dependiente?###
 
 require(gamlss)
 hist(log(salario))
@@ -98,14 +98,19 @@ par(mfrow=c(2,2))
 fitBCTo<-histDist(log(salario),family=BCTo,nbins=30)
 fitBCTo$mu
 fitBCTo$sigma
+fitBCTo$tau
+fitBCTo$nu
 
 fitBCPEo<-histDist(log(salario),family=BCPEo,nbins=30)
 fitBCPEo$mu
 fitBCPEo$sigma
+fitBCPEo$tau
+fitBCPEo$nu
 
-fitexGAUS<-histDist(log(salario),family=exGAUS,nbins=30)
+fitexGAUS<-histDist(log(salario),family=exGAUS,nbins=30,main = "ExGaus",bg="white",ylab = "Densidad",line.col = "black")
 fitexGAUS$mu
 fitexGAUS$sigma
+fitexGAUS$nu
 
 fitGA<-histDist(log(salario),family=GA,nbins=30)
 fitGA$mu
@@ -115,32 +120,32 @@ fitGA$sigma
 
 par(mfrow=c(2, 2))
 hist(log(salario),
-     main=expression(paste("Box-Cox t(", mu, "=13.98, ", sigma,"=0.042)")),
-     ylab='Densidad', freq=F, breaks=30, xlim=c(9,18),
-     xlab='Logaritmo natural salario', ylim=c(0, 0.8))
+     main=expression(paste("Box-Cox t(", mu, "=13.98, ", sigma,"=0.042,",tau,"=9.61,",nu,"=-0.43)")),
+     ylab="Densidad", freq=F, breaks=30, xlim=c(9,18),
+     xlab="Logaritmo natural salario", ylim=c(0, 0.8))
 curve(dBCTo(x, mu=exp(fitBCTo$mu.coef),
             sigma = exp(fitBCTo$sigma.coef)), add=T, lwd=3)
 
 hist(log(salario),
-     main=expression(paste("Box-Cox Power Exp(", mu, "=13.99, ", sigma,"=0.048)")),
+     main=expression(paste("Box-Cox Power Exp(", mu, "=13.99, ", sigma,"=0.048,",tau,"=1.70,",nu,"=0.51)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9, 18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
 curve(dBCPEo(x, mu=exp(fitBCPEo$mu.coef), 
-            sigma=exp(fitBCPEo$sigma.coef)), add=T, lwd=3)
+             sigma=exp(fitBCPEo$sigma.coef)), add=T, lwd=3)
 
 hist(log(salario),
-     main=expression(paste("exGAUS(", mu, "=13.71, ", sigma,"=0.6)")),
+     main=expression(paste("exGAUS(", mu, "=13.71, ", sigma,"=0.61", nu,"=0.51)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9, 18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
-curve(dexGAUS(x, mu=exp(fitexGAUS$mu.coef), 
-          sigma=exp(fitexGAUS$sigma.coef)), add=T, lwd=3)
+curve(dBCPEo(x, mu=exp(fitBCPEo$mu.coefficients),
+              sigma=exp(fitBCPEo$sigma.coefficients)), add=T, lwd=3)
 
 hist(log(salario),
      main=expression(paste("Gamma(", mu, "=14.01, ", sigma,"=0.048)")),
      ylab='Densidad', freq=F, breaks=30, xlim=c(9, 18),
      xlab='Logaritmo natural salario', ylim=c(0, 0.8))
-curve(dGA(x, mu=exp(fitGA$mu.coef), 
-               sigma=exp(fitGA$sigma.coef)), add=T, lwd=3)
+curve(dGA(x, mu=exp(fitGA$mu.coef),
+          sigma=exp(fitGA$sigma.coef)), add=T, lwd=3)
 
 
 ##########################
@@ -150,13 +155,13 @@ curve(dGA(x, mu=exp(fitGA$mu.coef),
 #Horzonte del modelo
 
 horizonte<-formula(~edad+I(edad^2)+añossuperior+I(añossuperior^2)+genero+
-                         tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil+templeado+tipocontrato+t.empresa)
+                     tiempoenlaempresa+I(tiempoenlaempresa^2)+estadocivil+templeado+tipocontrato+t.empresa)
 
 con1 <- gamlss.control(c.crit=0.001, n.cyc=10000)
 
 #Modelo BCTo
 
-empty.BCTo<-gamlss(log(salario)~1,sigma.fo=~1,family=BCTo(),control = con1)
+empty.BCTo<-gamlss(log(salario)~1,sigma.fo=~1,family=BCTo())
 
 mod.BCTo<-stepGAICAll.A(object=empty.BCTo,k=log(nrow(datos)),
                         
@@ -184,11 +189,13 @@ plot(mod.BCTo)
 coef(mod.BCTo)
 coef(mod.BCTo,what = "mu")
 AIC(mod.BCTo)
+wp(mod.BCTo,ylim.all = 1)
 AIC(lm3)
+
 
 ############BCPEO#####
 
-empty.BCPEO<-gamlss(log(salario)~1,sigma.fo=~1,family=BCPEo, control = con1)
+empty.BCPEO<-gamlss(log(salario)~1,sigma.fo=~1,family=BCPEo)
 
 mod.BCPEO<-stepGAICAll.A(object=empty.BCPEO,k=log(nrow(datos)),
                          
@@ -205,6 +212,7 @@ par(mfrow=c(1,2))
 plot(mod.BCPEO)
 coef(mod.BCPEO)
 coef(mod.BCPEO,what = "mu")
+wp(mod.BCPEO)
 
 
 ##########ExGAUS
@@ -227,6 +235,7 @@ plot(mod.exgaus)
 coef(mod.exgaus)
 coef(mod.exgaus,what = "mu")
 AIC(mod.exgaus)
+wp(mod.exgaus)
 
 ##########################GA
 
@@ -241,29 +250,32 @@ mod.GA<-stepGAICAll.A(object=empty.GA,k=log(nrow(datos)),
 summary(mod.GA)
 par(mfrow=c(1,2))
 plot(mod.GA)
+wp(mod.GA)
 
 ############ Para seleccionar entre los modelos
 
 AIC(mod.BCTo,mod.exgaus,mod.GA,mod.BCPEO)
 AIC(lm2)
 
+#### Dibujando los worm plot de las dos mejores y los residuales de los dos###
+
+par(mfrow=c(2,2))
+wpbcto<-wp(mod.BCTo)
+text(wpbcto,title(main = "BCTo"))
+qqnorm(mod.BCTo$residuals,main= "QQplot Residuales BCTo",ylab="Cuantiles de la muestra",xlab="Cuantiles teóricos")
+
+wpbcpeo<-wp(mod.BCPEO)
+text(wpbcto,title(main = "BCPEo"))
+qqnorm<-qqnorm(mod.BCPEO$residuals,main= "QQplot Residuales BCPEo",ylab="Cuantiles de la muestra",xlab="Cuantiles teóricos")
 
 ##### para dibujar los qq plot de cada distribución
 
 newpar<-par(mfrow=c(2,2), mar=par("mar")+c(0,1,0,0), col.axis="black",
             col="black", col.main="black",col.lab="black",pch="+",
-            cex=.6, cex.lab=1.2, cex.axis=1, cex.main=1.4)
+            cex=.6, cex.lab=1.2, cex.axis=1, cex.main=1.4,main)
 plot(mod.BCPEO,par=newpar)
 
 newpar<-par(mfrow=c(2,2), mar=par("mar")+c(0,1,0,0), col.axis="black",
             col="black", col.main="black",col.lab="black",pch="+",
             cex=.6, cex.lab=1.4, cex.axis=1, cex.main=1.4)
 plot(mod.BCTo,par=newpar)
-
-
-
-
-
-
-
-
